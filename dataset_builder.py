@@ -24,12 +24,13 @@ def main():
         lat, lon = coords[coord_index][0], coords[coord_index][1]
         
         # Set to training or testing data
-        if randint(0, 9) == 0:
-            for i in range(6):
-                val_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
-        else:
-            for i in range(5):
-                train_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
+        if -76 <= lon <= 70: 
+            if randint(0, 9) == 0:
+                for i in range(6):
+                    val_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
+            else:
+                for i in range(5):
+                    train_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
         
     with open(f'{args.output}/train_data.csv', mode='w', encoding='utf8') as f:
         writer = csv.writer(f)
