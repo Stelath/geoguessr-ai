@@ -28,7 +28,7 @@ def main():
             for i in range(6):
                 val_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
         else:
-            for i in range(6):
+            for i in range(5):
                 train_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
         
     with open(f'{args.output}/train_data.csv', mode='w', encoding='utf8') as f:
