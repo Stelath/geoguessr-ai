@@ -11,6 +11,7 @@ import os
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="The MATLAB file to read and extract GPS coordinates from", required=True, type=str)
+    parser.add_argument("--images", help="The path to the images folder, (defaults to: /images)", default='/images', type=str)
     parser.add_argument("--output", help="The output folder", required=True, type=str)
     return parser.parse_args()
 
@@ -65,10 +66,16 @@ transform = transforms.Compose([
 def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
     img_arr = []
+    channels = tuple(img_arr_r_channel = [], img_arr_g_channel = [], img_arr_b_channel = [])
     for i in range(6):
-        img = read_image(f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg')
+        img = read_image(os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{i}.jpg'))
         img = transform(img)
-        img_arr.append(img)
+        
+        for channel in channels:
+            channel.append(img)
+    
+    for channel in channels:
+        img_arr.append(channel)
         
     return [img_arr, [lat, lon]]
 
@@ -92,11 +99,13 @@ def main():
                 train_data.append(data)
                 train_count += 1
     
+    train_data_path = os.path.join(args.output, 'training_data.npy')
     np.random.shuffle(train_data)
-    np.save('train_data.npy', self.training_data)
+    np.save(train_data_path, training_data)
     
+    val_data_path = os.path.join(args.output, 'training_data.npy')
     np.random.shuffle(val_data)
-    np.save('val_data.npy', self.training_data)
+    np.save(val_data_path, val_data)
     
     print('Train Files:', train_count)
     print('Val Files:', val_count)
