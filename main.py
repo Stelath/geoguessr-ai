@@ -11,12 +11,10 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
 import torch.optim
-import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
-import custom_datasets as datasets
+from torch.utils.tensorboard import SummaryWriter
 from model import resnext101
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -53,7 +51,7 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
 best_acc1 = 0
-
+writer = SummaryWriter()
 
 def main():
     args = parser.parse_args()
@@ -159,6 +157,7 @@ def main_worker(gpu, args):
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
+        writer.add_scalar('Accuracy/test', acc1, epoch * len(train_loader))
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -215,6 +214,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
+        
+        writer.add_scalar('Loss/train', loss, i)
+        writer.add_scalar('Accuracy/train', acc1, i)
 
         if i % args.print_freq == 0:
             progress.display(i)
