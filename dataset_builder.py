@@ -2,7 +2,7 @@ import scipy.io
 import argparse
 import csv
 import torchvision.transforms as transforms
-from torchvision.io import read_image
+from PIL import Image
 from tqdm import tqdm
 from random import randint
 import numpy as np
@@ -11,7 +11,7 @@ import os
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="The MATLAB file to read and extract GPS coordinates from", required=True, type=str)
-    parser.add_argument("--images", help="The path to the images folder, (defaults to: /images)", default='/images', type=str)
+    parser.add_argument("--images", help="The path to the images folder, (defaults to: images/)", default='images/', type=str)
     parser.add_argument("--output", help="The output folder", required=True, type=str)
     return parser.parse_args()
 
@@ -66,13 +66,15 @@ transform = transforms.Compose([
 def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
     img_arr = []
-    channels = tuple(img_arr_r_channel = [], img_arr_g_channel = [], img_arr_b_channel = [])
+    img_arr_r_channel, img_arr_g_channel, img_arr_b_channel = [], [], []
+    channels = [img_arr_r_channel, img_arr_g_channel, img_arr_b_channel]
     for i in range(6):
-        img = read_image(os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{i}.jpg'))
+        img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{i}.jpg')
+        img = Image.open(img_path)
         img = transform(img)
         
-        for channel in channels:
-            channel.append(img)
+        for num, channel in enumerate(channels):
+            channel.append(img[num])
     
     for channel in channels:
         img_arr.append(channel)
@@ -81,15 +83,17 @@ def get_data(coord, coord_index):
 
 def main():
     mat = scipy.io.loadmat('GPS_Long_Lat_Compass.mat')
-    coords = mat['GPS_Long_Lat_Compass']
+    coords = mat['GPS_Compass']
     
     val_count = 0
     train_count = 0
     
-    for coord_index, coord in tqdm(enumerate(coords)):
-        lon = coord[0]
+    for coord_index in tqdm(range(len(coords))):
+        coord = coords[coord_index]
+        lon = coord[1]
         # Set to training or testing data
-        if -76 <= lon <= 70: 
+        if -76 <= lon <= -70:
+            print(lon)
             if randint(0, 9) == 0:
                 data = get_data(coord, coord_index)
                 val_data.append(data)
@@ -101,9 +105,9 @@ def main():
     
     train_data_path = os.path.join(args.output, 'training_data.npy')
     np.random.shuffle(train_data)
-    np.save(train_data_path, training_data)
+    np.save(train_data_path, train_data)
     
-    val_data_path = os.path.join(args.output, 'training_data.npy')
+    val_data_path = os.path.join(args.output, 'val_data.npy')
     np.random.shuffle(val_data)
     np.save(val_data_path, val_data)
     
