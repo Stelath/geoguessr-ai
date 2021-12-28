@@ -1,6 +1,5 @@
 import scipy.io
 import argparse
-import csv
 import torchvision.transforms as transforms
 from PIL import Image
 from tqdm import tqdm
@@ -15,44 +14,7 @@ def get_args():
     parser.add_argument("--output", help="The output folder", required=True, type=str)
     return parser.parse_args()
 
-# def main():
-#     args = get_args()
-    
-#     train_files = []
-#     val_files = []
-    
-#     mat = scipy.io.loadmat('GPS_Long_Lat_Compass.mat')
-#     coords = mat['GPS_Long_Lat_Compass']
-    
-#     for coord_index in tqdm(range(len(coords))):
-#         lat, lon = coords[coord_index][0], coords[coord_index][1]
-        
-#         # Set to training or testing data
-#         if -76 <= lon <= 70: 
-#             if randint(0, 9) == 0:
-#                 for i in range(6):
-#                     val_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
-#             else:
-#                 for i in range(5):
-#                     train_files.append([f'images/{str(coord_index + 1).zfill(6)}_{i}.jpg', [lat, lon]])
-        
-#     with open(f'{args.output}/train_data.csv', mode='w', encoding='utf8') as f:
-#         writer = csv.writer(f)
-#         writer.writerows(train_files)
-    
-#     with open(f'{args.output}/val_data.csv', mode='w', encoding='utf8') as f:
-#         writer = csv.writer(f)
-#         writer.writerows(train_files)
-        
-#     print('Train Files:', len(train_files))
-#     print('Val Files:', len(val_files))
-#     print('Total Files:', len(train_files) + len(val_files))
-#     print('Train Files to Val Files Ratio:', len(train_files) / len(val_files))
-
 args = get_args()
-    
-train_data = []
-val_data = []
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                     std=[0.229, 0.224, 0.225])
@@ -85,6 +47,11 @@ def main():
     mat = scipy.io.loadmat('GPS_Long_Lat_Compass.mat')
     coords = mat['GPS_Compass']
     
+    train_data_path = os.path.join(args.output, 'train')
+    os.makedirs(train_data_path)
+    val_data_path = os.path.join(args.output, 'val')
+    os.makedirs(val_data_path)
+    
     val_count = 0
     train_count = 0
     
@@ -93,23 +60,16 @@ def main():
         lon = coord[1]
         # Set to training or testing data
         if -76 <= lon <= -70:
-            print(lon)
             if randint(0, 9) == 0:
                 data = get_data(coord, coord_index)
-                val_data.append(data)
+                val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}.npy')
+                np.save(val_data_path, data)
                 val_count += 1
             else:
                 data = get_data(coord, coord_index)
-                train_data.append(data)
+                train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}.npy')
+                np.save(train_data_path, data)
                 train_count += 1
-    
-    train_data_path = os.path.join(args.output, 'training_data.npy')
-    np.random.shuffle(train_data)
-    np.save(train_data_path, train_data)
-    
-    val_data_path = os.path.join(args.output, 'val_data.npy')
-    np.random.shuffle(val_data)
-    np.save(val_data_path, val_data)
     
     print('Train Files:', train_count)
     print('Val Files:', val_count)

@@ -14,6 +14,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
+import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 from model import resnext101
 
@@ -131,18 +132,32 @@ def main_worker(gpu, args):
     else:
         train_sampler = None
         
-    train_data_path = os.path.join(args.data, 'training_data.npy')
-    train_dataset = np.load(train_data_path, allow_pickle=True)
+    traindir = os.path.join(args.data, 'train')
+    valdir = os.path.join(args.data, 'val')
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    img_tranforms = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])
+    train_dataset = datasets.ImageFolder(
+        traindir, img_tranforms)
+
+    if args.distributed:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    else:
+        train_sampler = None
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
-    
-    val_data_path = os.path.join(args.data, 'val_data.npy')
-    val_dataset = np.load(Val_data_path, allow_pickle=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset,
+
+    val_loader = torch.utils.data.DataLoader(
+        datasets.ImageFolder(valdir, img_tranforms),
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
-
     if args.evaluate:
         validate(val_loader, model, criterion, args)
         return
