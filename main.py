@@ -17,6 +17,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 from model import resnext101
+from geoguessr_dataset import GeoGuessrDataset
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -54,6 +55,7 @@ parser.add_argument('--gpu', default=None, type=int,
 best_acc1 = 0
 writer = SummaryWriter()
 
+
 def main():
     args = parser.parse_args()
 
@@ -70,7 +72,7 @@ def main():
     if args.gpu is not None:
         warnings.warn('You have chosen a specific GPU. This will completely '
                       'disable data parallelism.')
-    
+
     main_worker(args.gpu, args)
 
 
@@ -80,7 +82,7 @@ def main_worker(gpu, args):
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
-    
+
     print("=> creating model: ResNeXt 3D - 101 layers")
     model = resnext101(num_classes=2)
 
@@ -124,39 +126,24 @@ def main_worker(gpu, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_data = os.path.join(args.data, 'train_data.csv')
-    val_data = os.path.join(args.data, 'val_data.csv')
-
-    if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    else:
-        train_sampler = None
-        
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-    img_tranforms = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])
-    train_dataset = datasets.ImageFolder(
-        traindir, img_tranforms)
+    train_dataset = GeoGuessrDataset(traindir)
+    val_dataset = GeoGuessrDataset(valdir)
 
     if args.distributed:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+        train_sampler = torch.utils.data.distributed.DistributedSampler(
+            train_dataset)
     else:
         train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        train_dataset, batch_size=args.batch_size, shuffle=(
+            train_sampler is None),
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, img_tranforms),
-        batch_size=args.batch_size, shuffle=False,
+        val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     if args.evaluate:
         validate(val_loader, model, criterion, args)
@@ -177,13 +164,13 @@ def main_worker(gpu, args):
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
-        
+
         if epoch % args.checkpoint_step == 0:
             save_checkpoint({
                 'epoch': epoch + 1,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
             }, is_best)
 
 
@@ -229,7 +216,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        
+
         writer.add_scalar('Loss/train', loss, i)
         writer.add_scalar('Accuracy/train', acc1, i)
 
@@ -285,14 +272,17 @@ def save_checkpoint(state, is_best, filename='models/checkpoint.pth.tar'):
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
+
 class Summary(Enum):
     NONE = 0
     AVERAGE = 1
     SUM = 2
     COUNT = 3
 
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f', summary_type=Summary.AVERAGE):
         self.name = name
         self.fmt = fmt
@@ -314,7 +304,7 @@ class AverageMeter(object):
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
-    
+
     def summary(self):
         fmtstr = ''
         if self.summary_type is Summary.NONE:
@@ -327,7 +317,7 @@ class AverageMeter(object):
             fmtstr = '{name} {count:.3f}'
         else:
             raise ValueError('invalid summary type %r' % self.summary_type)
-        
+
         return fmtstr.format(**self.__dict__)
 
 
@@ -341,7 +331,7 @@ class ProgressMeter(object):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
-        
+
     def display_summary(self):
         entries = [" *"]
         entries += [meter.summary() for meter in self.meters]
