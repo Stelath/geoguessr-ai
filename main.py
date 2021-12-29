@@ -355,6 +355,9 @@ def adjust_learning_rate(optimizer, epoch, args):
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
+        output = torch.round(output * 10**3) / (10**3)
+        target = torch.round(target * 10**3) / (10**3)
+        
         maxk = max(topk)
         batch_size = target.size(0)
 
