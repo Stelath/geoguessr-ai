@@ -1,5 +1,6 @@
 import scipy.io
 import argparse
+import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from tqdm import tqdm
@@ -27,19 +28,13 @@ transform = transforms.Compose([
 
 def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
-    img_arr = []
-    img_arr_r_channel, img_arr_g_channel, img_arr_b_channel = [], [], []
-    channels = [img_arr_r_channel, img_arr_g_channel, img_arr_b_channel]
+    img_arr = torch.tensor([])
+    
     for i in range(6):
         img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{i}.jpg')
         img = Image.open(img_path)
         img = transform(img)
-        
-        for num, channel in enumerate(channels):
-            channel.append(img[num])
-    
-    for channel in channels:
-        img_arr.append(channel)
+        img_arr = torch.cat((img_arr, img), 2)
         
     return [img_arr, [lat, lon]]
 
@@ -48,9 +43,9 @@ def main():
     coords = mat['GPS_Compass']
     
     train_data_path = os.path.join(args.output, 'train')
-    os.makedirs(train_data_path)
+    os.makedirs(train_data_path, exist_ok=True)
     val_data_path = os.path.join(args.output, 'val')
-    os.makedirs(val_data_path)
+    os.makedirs(val_data_path, exist_ok=True)
     
     val_count = 0
     train_count = 0

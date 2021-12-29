@@ -16,7 +16,7 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
-from model import resnext101
+import torchvision.models as models
 from geoguessr_dataset import GeoGuessrDataset
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
@@ -83,8 +83,8 @@ def main_worker(gpu, args):
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
 
-    print("=> creating model: ResNeXt 3D - 101 layers")
-    model = resnext101(num_classes=2)
+    print("=> creating model: ResNeXt - 101 layers")
+    model = models.resnext101_32x8d(False, True, num_classes=2)
 
     if not torch.cuda.is_available():
         print('CPU, this will be slow')
@@ -164,6 +164,8 @@ def main_worker(gpu, args):
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
+        
+        writer.flush()
 
         if epoch % args.checkpoint_step == 0:
             save_checkpoint({

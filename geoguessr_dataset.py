@@ -13,4 +13,8 @@ class GeoGuessrDataset(Dataset):
         # Load numpy array from index of listdir
         data_path = os.join(self.data_dir, os.listdir(self.data_dir)[idx])
         data = np.load(data_path)
-        return data[0], data[1]
+        
+        target = data[1]
+        data = data[0]
+        
+        return data, target
