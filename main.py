@@ -107,8 +107,8 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     
-    model = models.resnext101_32x8d(pretrained=False, progress=True, num_classes=2).cuda()
-    loss_function = nn.L1Loss().cuda()
+    model = models.resnext101_32x8d(pretrained=False, progress=True, num_classes=2)
+    loss_function = nn.L1Loss()
     
     if torch.cuda.is_available():
         torch.device("cuda")
