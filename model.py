@@ -76,6 +76,17 @@ class CoAtNet(nn.Module):
 
         return y
 
+class CoAtNet_Linear(nn.Module):
+    def __init__(self, in_ch, image_size, out_chs=[64,96,192,384,768], num_classes=1000):
+        super().__init__()
+        self.coatnet = CoAtNet(in_ch, image_size)
+        self.fc1 = nn.Linear(self.coatnet.out_chs[4], num_classes)
+    
+    def forware(self, x):
+        x = self.coatnet(x)
+        x = x.reshape(1, -1)
+        return x
+
 if __name__ == '__main__':
     x=torch.randn(1,3,224,224)
     coatnet=CoAtNet(3,224)

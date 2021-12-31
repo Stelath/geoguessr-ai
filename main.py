@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 import torchvision.models as models
-from model import CoAtNet
+from model import CoAtNet_Linear
 from torch.utils.tensorboard import SummaryWriter
 from utils.tensor_utils import round_tensor
 from geoguessr_dataset import GeoGuessrDataset
@@ -16,6 +16,7 @@ from geoguessr_dataset import GeoGuessrDataset
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
+model_names.append('coatnet')
 
 parser = argparse.ArgumentParser(description='PyTorch GeoGuessr AI Training')
 parser.add_argument('data', metavar='DIR',
@@ -24,7 +25,6 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                         ' | '.join(model_names) +
-                        '| coatnet' +
                         ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
@@ -123,7 +123,6 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
             if epoch % args.checkpoint_step == 0:
                 print('Saving model...')
                 torch.save(model.state_dict(), f'models/{start_time}/model-{epoch}.pth')
-            
 
 def main():
     os.makedirs(f'models/{start_time}', exist_ok=True)
@@ -143,7 +142,7 @@ def main():
     
     print("=> creating model '{}'".format(args.arch))
     if args.arch == 'coatnet':
-        model = CoAtNet(3, 224, out_chs=[64,96,192,384,2])
+        model = CoAtNet_Linear(3, 224, num_classes=2)
     else:
         model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=2)
     loss_function = nn.L1Loss()
