@@ -57,18 +57,13 @@ def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
         model.zero_grad()
     
     outputs = model(data)
-    matches = [(round_tensor(i) == round_tensor(j)).all() for i, j in zip(outputs, targets)]
+    matches = [torch.where(i >= 0.5, 1, 0) == j for i, j in zip(outputs, targets)]
     acc = matches.count(True) / len(matches)
     loss = loss_function(outputs, targets)
 
     if train:
         loss.backward()
         optimizer.step()
-    
-    if not train:
-        close_matches = [((j + 0.005) >= i).all() and (i >= (j - 0.005)).all() for i, j in zip(outputs, targets)]
-        close_acc = close_matches.count(True) / len(close_matches)
-        return acc, loss, close_acc
     
     return acc, loss
 
@@ -77,22 +72,19 @@ def test(val_loader, model, loss_function, optimizer):
     
     model.eval()
     acc = []
-    close_acc = []
     loss = []
     
     for idx, sample in enumerate(val_loader):
         if idx >= random and idx < random + 4:
             data, target = sample
             with torch.no_grad():
-                val_acc, val_loss, val_close_acc = fwd_pass(model, data, target, loss_function, optimizer)
+                val_acc, val_loss = fwd_pass(model, data, target, loss_function, optimizer)
                 acc.append(val_acc)
-                close_acc.append(val_close_acc)
                 loss.append(val_loss.cpu().numpy())
     
     val_acc = np.mean(acc)
-    val_close_acc = np.mean(close_acc)
     val_loss = np.mean(loss)
-    return val_acc, val_loss, val_close_acc
+    return val_acc, val_loss
 
 def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
     with open(f'models/{start_time}/model.log', 'a') as f:
@@ -103,7 +95,7 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
                 data, target = sample
                 acc, loss = fwd_pass(model, data, target, loss_function, optimizer, train=True)
             
-            val_acc, val_loss, val_close_acc = test(val_loader, model, loss_function, optimizer)
+            val_acc, val_loss = test(val_loader, model, loss_function, optimizer)
             
             # Add accuracy and loss to tensorboard
             progress = len(train_loader) / idx
@@ -111,10 +103,9 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
             writer.add_scalar('Accuracy/train', acc, epoch)
             writer.add_scalar('Loss/test', val_loss, epoch)
             writer.add_scalar('Accuracy/test', val_acc, epoch)
-            writer.add_scalar('CloseAccuracy/test', val_close_acc, epoch)
             
             # Log Accuracy and Loss
-            log = f'model-{epoch}, Accuracy: {round(float(acc), 2)}, Loss: {round(float(loss), 4)}, Val Accuracy: {round(float(val_acc), 2)}, Val Loss: {round(float(val_loss), 4)}, Val Close Accuracy: {round(float(val_close_acc))}\n'
+            log = f'model-{epoch}, Accuracy: {round(float(acc), 2)}, Loss: {round(float(loss), 4)}, Val Accuracy: {round(float(val_acc), 2)}, Val Loss: {round(float(val_loss), 4)}\n'
             print(log, end='')
             f.write(log)
             
@@ -140,7 +131,12 @@ def main():
     
     print("=> creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=2)
-    loss_function = nn.L1Loss()
+    model = nn.Sequential(
+        model,
+        nn.Sigmoid()
+    )
+    
+    loss_function = nn.BCELoss()
     
     if torch.cuda.is_available():
         print('Using GPU')
