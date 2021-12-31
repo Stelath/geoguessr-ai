@@ -8,13 +8,24 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 import torchvision.models as models
+from model import CoAtNet
 from torch.utils.tensorboard import SummaryWriter
 from utils.tensor_utils import round_tensor
 from geoguessr_dataset import GeoGuessrDataset
 
+model_names = sorted(name for name in models.__dict__
+    if name.islower() and not name.startswith("__")
+    and callable(models.__dict__[name]))
+
 parser = argparse.ArgumentParser(description='PyTorch GeoGuessr AI Training')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+                    choices=model_names,
+                    help='model architecture: ' +
+                        ' | '.join(model_names) +
+                        '| coatnet' +
+                        ' (default: resnet50)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -105,7 +116,7 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
             writer.add_scalar('CloseAccuracy/test', val_close_acc, epoch)
             
             # Log Accuracy and Loss
-            log = f'model-{epoch}, Accuracy: {round(float(acc), 2)}, Loss: {round(float(loss), 4)}, Val Accuracy: {round(float(val_acc), 2)}, Val Loss: {round(float(val_loss), 4)}\n'
+            log = f'model-{epoch}, Accuracy: {round(float(acc), 2)}, Loss: {round(float(loss), 4)}, Val Accuracy: {round(float(val_acc), 2)}, Val Loss: {round(float(val_loss), 4)}, Val Close Accuracy: {round(float(val_close_acc))}\n'
             print(log, end='')
             f.write(log)
             
@@ -130,7 +141,11 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     
-    model = models.resnext50_32x4d(pretrained=False, progress=True, num_classes=2)
+    print("=> creating model '{}'".format(args.arch))
+    if args.arch == 'coatnet':
+        model = CoAtNet(3, 224, out_chs=[64,96,192,384,2])
+    else:
+        model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=2)
     loss_function = nn.L1Loss()
     
     if torch.cuda.is_available():

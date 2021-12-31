@@ -26,14 +26,15 @@ transform = transforms.Compose([
         normalize,
     ])
 
-def get_data(coord, coord_index, image_index):
+def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
     img_arr = torch.tensor([])
     
-    img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{image_index}.jpg')
-    img = Image.open(img_path)
-    img = transform(img)
-    img_arr = torch.cat((img_arr, img), 2)
+    for i in range(5):
+        img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{i}.jpg')
+        img = Image.open(img_path)
+        img = transform(img)
+        img_arr = torch.cat((img_arr, img), 2)
         
     return [img_arr, [lat, lon]]
 
@@ -52,19 +53,18 @@ def main():
     for coord_index in tqdm(range(len(coords))):
         coord = coords[coord_index]
         lon = coord[1]
-        
-        for i in range(5):
-            if -76 <= lon <= -70:
-                if randint(0, 9) == 0:
-                    data = get_data(coord, coord_index, i)
-                    val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}_{i}.npy')
-                    np.save(val_data_path, data)
-                    val_count += 1
-                else:
-                    data = get_data(coord, coord_index, i)
-                    train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}_{i}.npy')
-                    np.save(train_data_path, data)
-                    train_count += 1
+        # Set to training or testing data
+        if -76 <= lon <= -70:
+            if randint(0, 9) == 0:
+                data = get_data(coord, coord_index)
+                val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}.npy')
+                np.save(val_data_path, data)
+                val_count += 1
+            else:
+                data = get_data(coord, coord_index)
+                train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}.npy')
+                np.save(train_data_path, data)
+                train_count += 1
     
     print('Train Files:', train_count)
     print('Val Files:', val_count)
