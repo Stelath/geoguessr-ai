@@ -12,6 +12,14 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.tensor_utils import round_tensor
 from geoguessr_dataset import GeoGuessrDataset
 
+from sam import SAM
+from model.wide_res_net import WideResNet
+from model.smooth_cross_entropy import smooth_crossentropy
+from utility.log import Log
+from utility.initialize import initialize
+from utility.step_lr import StepLR
+from utility.bypass_bn import enable_running_stats, disable_running_stats
+
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -19,31 +27,18 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch GeoGuessr AI Training')
 parser.add_argument('data', metavar='DIR',
                     help='path to dataset')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
-                    choices=model_names,
-                    help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet50)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                    help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-parser.add_argument('--checkpoint-step', default=1, type=int, metavar='N',
-                    help='how often (in epochs) to save the model (default: 1)')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
-                    metavar='N',
-                    help='batch size (default: 64), this is the total '
-                         'batch size of the GPU')
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
-                    metavar='LR', help='learning rate for optimizer', dest='lr')
-parser.add_argument('-p', '--print-freq', default=10, type=int,
-                    metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
+parser.add_argument("--adaptive", default=True, type=bool, help="True if you want to use the Adaptive SAM.")
+parser.add_argument("--batch_size", default=128, type=int, help="Batch size used in the training and validation loop.")
+parser.add_argument("--depth", default=16, type=int, help="Number of layers.")
+parser.add_argument("--dropout", default=0.0, type=float, help="Dropout rate.")
+parser.add_argument("--epochs", default=200, type=int, help="Total number of epochs.")
+parser.add_argument("--label_smoothing", default=0.1, type=float, help="Use 0.0 for no label smoothing.")
+parser.add_argument("--learning_rate", default=0.1, type=float, help="Base learning rate at the start of the training.")
+parser.add_argument("--momentum", default=0.9, type=float, help="SGD Momentum.")
+parser.add_argument("--threads", default=2, type=int, help="Number of CPU threads for dataloaders.")
+parser.add_argument("--rho", default=2.0, type=int, help="Rho parameter for SAM.")
+parser.add_argument("--weight_decay", default=0.0005, type=float, help="L2 weight decay.")
+parser.add_argument("--width_factor", default=8, type=int, help="How many times wider compared to normal ResNet.")
 
 start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 args = parser.parse_args()
@@ -94,9 +89,10 @@ def test(val_loader, model, loss_function, optimizer):
     val_loss = np.mean(loss)
     return val_acc, val_loss, val_close_acc
 
-def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
+def train(train_loader, val_loader, model, loss_function, optimizer, epochs, scheduler):
     with open(f'models/{start_time}/model.log', 'a') as f:
         for epoch in range(epochs):
+            scheduler(epoch)
             model.train()
             
             for idx, sample in enumerate(tqdm(train_loader)):
@@ -139,7 +135,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=2)
+    model = WideResNet(args.depth, args.width_factor, args.dropout, in_channels=3, labels=10).to(device)
     loss_function = nn.L1Loss()
     
     if torch.cuda.is_available():
@@ -151,10 +147,12 @@ def main():
         print('Using CPU')
         torch.device("cpu")
     
-    optimizer = torch.optim.Adam(model.parameters(), args.lr)
+    base_optimizer = torch.optim.SGD
+    optimizer = SAM(model.parameters(), base_optimizer, rho=args.rho, adaptive=args.adaptive, lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
+    scheduler = StepLR(optimizer, args.learning_rate, args.epochs)
     
     EPOCHS = args.epochs
-    train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS)
+    train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, scheduler=scheduler)
     
 if __name__ == '__main__':
     main()
