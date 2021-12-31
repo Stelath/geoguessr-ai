@@ -48,17 +48,20 @@ def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
         model.zero_grad()
     
     outputs = model(data)
-    matches = [round_tensor(i) == j for i, j in zip(outputs, targets)]
-    close_matches = [(j + 0.003) >= i >= (j - 0.0003) for i, j in zip(outputs, targets)]
+    matches = [(round_tensor(i) == round_tensor(j)).all() for i, j in zip(outputs, targets)]
     acc = matches.count(True) / len(matches)
-    close_acc = close_matches.count(True) / len(close_matches)
     loss = loss_function(outputs, targets)
 
     if train:
         loss.backward()
         optimizer.step()
     
-    return acc, loss, close_acc
+    if not train:
+        close_matches = [((j + 0.005) >= i).all() and (i >= (j - 0.005)).all() for i, j in zip(outputs, targets)]
+        close_acc = close_matches.count(True) / len(close_matches)
+        return acc, loss, close_acc
+    
+    return acc, loss
 
 def test(val_loader, model, loss_function, optimizer):
     random = np.random.randint(len(val_loader))
@@ -91,7 +94,7 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
                 data, target = sample
                 acc, loss = fwd_pass(model, data, target, loss_function, optimizer, train=True)
             
-            val_acc, val_loss = test(val_loader, model, loss_function, optimizer)
+            val_acc, val_loss, val_close_acc = test(val_loader, model, loss_function, optimizer)
             
             # Add accuracy and loss to tensorboard
             progress = len(train_loader) / idx
@@ -127,10 +130,11 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     
-    model = models.resnext101_32x8d(pretrained=False, progress=True, num_classes=2)
+    model = models.resnext50_32x4d(pretrained=False, progress=True, num_classes=2)
     loss_function = nn.L1Loss()
     
     if torch.cuda.is_available():
+        print('Using GPU')
         torch.device("cuda")
         model = model.cuda()
         loss_function = loss_function.cuda()
