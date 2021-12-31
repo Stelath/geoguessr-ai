@@ -1,13 +1,15 @@
 import os
 import argparse
-import tqdm
+from tqdm import tqdm
 import numpy as np
 from datetime import datetime
 
 import torch
 import torch.nn as nn
+import torch.utils.data
 import torchvision.models as models
 from torch.utils.tensorboard import SummaryWriter
+from utils.tensor_utils import round_tensor
 from geoguessr_dataset import GeoGuessrDataset
 
 parser = argparse.ArgumentParser(description='PyTorch GeoGuessr AI Training')
@@ -38,51 +40,67 @@ start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 args = parser.parse_args()
 writer = SummaryWriter()
 
-def fwd_pass(model, data, target, loss_function, optimizer, train=False):
+def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     data = data.cuda()
-    targets = target.cuda()
+    targets = targets.cuda()
 
     if train:
         model.zero_grad()
     
     outputs = model(data)
-    matches = [torch.argmax(i) == torch.argmax(j) for i, j in zip(outputs, targets)]
+    matches = [round_tensor(i) == j for i, j in zip(outputs, targets)]
+    close_matches = [(j + 0.003) >= i >= (j - 0.0003) for i, j in zip(outputs, targets)]
     acc = matches.count(True) / len(matches)
+    close_acc = close_matches.count(True) / len(close_matches)
     loss = loss_function(outputs, targets)
 
     if train:
         loss.backward()
         optimizer.step()
     
-    return acc, loss
+    return acc, loss, close_acc
 
-def test(val_loader, model):
+def test(val_loader, model, loss_function, optimizer):
     random = np.random.randint(len(val_loader))
-    data, target = val_loader[random]
     
     model.eval()
-    with torch.no_grad():
-        val_acc, val_loss = fwd_pass(model, data, target)
+    acc = []
+    close_acc = []
+    loss = []
     
-    return val_acc, val_loss
+    for idx, sample in enumerate(val_loader):
+        if idx >= random and idx < random + 4:
+            data, target = sample
+            with torch.no_grad():
+                val_acc, val_loss, val_close_acc = fwd_pass(model, data, target, loss_function, optimizer)
+                acc.append(val_acc)
+                close_acc.append(val_close_acc)
+                loss.append(val_loss.cpu().numpy())
+    
+    val_acc = np.mean(acc)
+    val_close_acc = np.mean(close_acc)
+    val_loss = np.mean(loss)
+    return val_acc, val_loss, val_close_acc
 
 def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
-    with open('models/{start_time}/model.log', 'a') as f:
+    with open(f'models/{start_time}/model.log', 'a') as f:
         for epoch in range(epochs):
             model.train()
             
-            for idx, (data, target) in enumerate(tqdm(train_loader)):
-                acc, loss = fwd_pass(data, target, train=True)
+            for idx, sample in enumerate(tqdm(train_loader)):
+                data, target = sample
+                acc, loss = fwd_pass(model, data, target, loss_function, optimizer, train=True)
             
-            val_acc, val_loss = test(val_loader, model)
+            val_acc, val_loss = test(val_loader, model, loss_function, optimizer)
             
             # Add accuracy and loss to tensorboard
             progress = len(train_loader) / idx
-            writer.add_scalar('Loss/train', loss, progress)
-            writer.add_scalar('Accuracy/train', acc, progress)
-            writer.add_scalar('Loss/test', val_loss, progress)
-            writer.add_scalar('Accuracy/test', val_acc, progress)
-                
+            writer.add_scalar('Loss/train', loss, epoch)
+            writer.add_scalar('Accuracy/train', acc, epoch)
+            writer.add_scalar('Loss/test', val_loss, epoch)
+            writer.add_scalar('Accuracy/test', val_acc, epoch)
+            writer.add_scalar('CloseAccuracy/test', val_close_acc, epoch)
+            
             # Log Accuracy and Loss
             log = f'model-{epoch}, Accuracy: {round(float(acc), 2)}, Loss: {round(float(loss), 4)}, Val Accuracy: {round(float(val_acc), 2)}, Val Loss: {round(float(val_loss), 4)}\n'
             print(log, end='')
@@ -94,6 +112,8 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
             
 
 def main():
+    os.makedirs(f'models/{start_time}', exist_ok=True)
+    
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
     train_dataset = GeoGuessrDataset(traindir)
@@ -122,3 +142,6 @@ def main():
     
     EPOCHS = args.epochs
     train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS)
+    
+if __name__ == '__main__':
+    main()
