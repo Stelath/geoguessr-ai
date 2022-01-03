@@ -89,9 +89,17 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs, sta
         for epoch in range(start_epoch, epochs):
             model.train()
             
+            train_acc = []
+            train_loss = []
+            
             for idx, sample in enumerate(tqdm(train_loader)):
                 data, target = sample
                 acc, loss = fwd_pass(model, data, target, loss_function, optimizer, train=True)
+                train_acc.append(acc)
+                train_loss.append(loss.cpu().detach().numpy())
+            
+            acc = np.mean(train_acc)
+            loss = np.mean(train_loss)
             
             val_acc, val_loss = test(val_loader, model, loss_function, optimizer)
             
@@ -133,7 +141,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=182)
+    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=122)
     model = nn.Sequential(
         model,
         nn.Sigmoid()
@@ -158,7 +166,8 @@ def main():
         checkpoint = torch.load(args.resume)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        start_epoch = checkpoint['epoch']
+        start_epoch = checkpoint['epoch'] + 1
+        print(f'Resuming from epoch {start_epoch}')
     
     EPOCHS = args.epochs
     train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, start_epoch=start_epoch)
