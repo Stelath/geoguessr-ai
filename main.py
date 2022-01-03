@@ -74,9 +74,9 @@ def test(val_loader, model, loss_function, optimizer):
     
     for idx, sample in enumerate(val_loader):
         if idx >= random and idx < random + 4:
-            data, target = sample
+            data, targets = sample
             with torch.no_grad():
-                val_acc, val_loss = fwd_pass(model, data, target, loss_function, optimizer)
+                val_acc, val_loss = fwd_pass(model, data, targets, loss_function, optimizer)
                 acc.append(val_acc)
                 loss.append(val_loss.cpu().numpy())
     
