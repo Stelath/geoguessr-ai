@@ -28,8 +28,6 @@ parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
 parser.add_argument('--checkpoint-step', default=1, type=int, metavar='N',
                     help='how often (in epochs) to save the model (default: 1)')
 parser.add_argument('-b', '--batch-size', default=64, type=int,
@@ -57,7 +55,7 @@ def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
         model.zero_grad()
     
     outputs = model(data)
-    matches = [torch.where(i >= 0.5, 1, 0) == j for i, j in zip(outputs, targets)]
+    matches = [(torch.where(i >= 0.5, 1, 0) == j).all() for i, j in zip(outputs, targets)]
     acc = matches.count(True) / len(matches)
     loss = loss_function(outputs, targets)
 
@@ -86,9 +84,9 @@ def test(val_loader, model, loss_function, optimizer):
     val_loss = np.mean(loss)
     return val_acc, val_loss
 
-def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
+def train(train_loader, val_loader, model, loss_function, optimizer, epochs, start_epoch=0):
     with open(f'models/{start_time}/model.log', 'a') as f:
-        for epoch in range(epochs):
+        for epoch in range(start_epoch, epochs):
             model.train()
             
             for idx, sample in enumerate(tqdm(train_loader)):
@@ -111,7 +109,12 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs):
             
             if epoch % args.checkpoint_step == 0:
                 print('Saving model...')
-                torch.save(model.state_dict(), f'models/{start_time}/model-{epoch}.pth')
+                torch.save({
+                            'epoch': epoch,
+                            'model_state_dict': model.state_dict(),
+                            'optimizer_state_dict': optimizer.state_dict(),
+                            'loss': loss
+                            }, f'models/{start_time}/model-{epoch}.pth')
 
 def main():
     os.makedirs(f'models/{start_time}', exist_ok=True)
@@ -130,7 +133,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=2)
+    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=182)
     model = nn.Sequential(
         model,
         nn.Sigmoid()
@@ -149,8 +152,16 @@ def main():
     
     optimizer = torch.optim.Adam(model.parameters(), args.lr)
     
+    start_epoch = 0
+    
+    if not args.resume == '':
+        checkpoint = torch.load(args.resume)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch']
+    
     EPOCHS = args.epochs
-    train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS)
+    train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, start_epoch=start_epoch)
     
 if __name__ == '__main__':
     main()

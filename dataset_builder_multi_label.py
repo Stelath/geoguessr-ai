@@ -26,10 +26,6 @@ transform = transforms.Compose([
         normalize,
     ])
 
-def one_hot(num):
-    if num == 0:
-        return [1, 0, 0, 0, 0, 0, 0, 0, 0]
-
 def multi_label(num, decimals=5):
     num = str(round(num * (decimals ** 10)))
     
@@ -46,12 +42,10 @@ def multi_label(num, decimals=5):
 
 def get_data(coord, coord_index, image_index):
     lat, lon = coord[0], coord[1]
-    img_arr = torch.tensor([])
     
     img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{image_index}.jpg')
     img = Image.open(img_path)
-    img = transform(img)
-    img_arr = torch.cat((img_arr, img), 2)
+    img_arr = transform(img)
     
     lat_multi_label = multi_label(lat)
     lon_multi_label = multi_label(lon)

@@ -28,12 +28,10 @@ transform = transforms.Compose([
 
 def get_data(coord, coord_index, image_index):
     lat, lon = coord[0], coord[1]
-    img_arr = torch.tensor([])
     
     img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{image_index}.jpg')
     img = Image.open(img_path)
-    img = transform(img)
-    img_arr = torch.cat((img_arr, img), 2)
+    img_arr = transform(img)
         
     return [img_arr, [lat, lon]]
 

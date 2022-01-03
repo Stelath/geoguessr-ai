@@ -15,7 +15,7 @@ class GeoGuessrDataset(Dataset):
         data_path = os.path.join(self.data_dir, os.listdir(self.data_dir)[idx])
         data = np.load(data_path, allow_pickle=True)
         
-        target = torch.tensor(data[1])
+        target = torch.tensor(data[1], dtype=torch.float)
         data = data[0]
         
         return data, target
