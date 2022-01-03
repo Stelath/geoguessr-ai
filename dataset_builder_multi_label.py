@@ -26,8 +26,11 @@ transform = transforms.Compose([
         normalize,
     ])
 
-def multi_label(num, decimals=5):
-    num = str(round(num * (decimals ** 10)))
+def multi_label(num, decimals=4):
+    if decimals > 0:
+      num = str(round(num * (10 ** decimals)))
+    else:
+      num = str(round(num))
     
     if num[0] == '-':
         label = np.array([1])
