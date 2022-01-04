@@ -26,6 +26,23 @@ transform = transforms.Compose([
         normalize,
     ])
 
+def multi_label(num, decimals=4):
+    if decimals > 0:
+      num = str(round(num * (10 ** decimals)))
+    else:
+      num = str(round(num))
+    
+    if num[0] == '-':
+        label = np.array([1])
+        num = num[1:]
+    else:
+        label = np.array([0])
+    
+    for digit in num:
+        label = np.concatenate((label, np.eye(10)[int(digit)]))
+    
+    return label
+
 def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
     img_arr = torch.tensor([])
@@ -35,8 +52,13 @@ def get_data(coord, coord_index):
         img = Image.open(img_path)
         img = transform(img)
         img_arr = torch.cat((img_arr, img), 2)
-        
-    return [img_arr, [lat, lon]]
+    
+    lat_multi_label = multi_label(lat)
+    lon_multi_label = multi_label(lon)
+    
+    target = np.concatenate((lat_multi_label, lon_multi_label))
+    
+    return [img_arr, target]
 
 def main():
     mat = scipy.io.loadmat('GPS_Long_Lat_Compass.mat')
