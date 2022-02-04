@@ -1,5 +1,5 @@
-import scipy.io
 import argparse
+import csv
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -10,7 +10,7 @@ import os
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="The MATLAB file to read and extract GPS coordinates from", required=True, type=str)
+    parser.add_argument("--file", help="The CSV file to read and extract GPS coordinates from", required=True, type=str)
     parser.add_argument("--images", help="The path to the images folder, (defaults to: images/)", default='images/', type=str)
     parser.add_argument("--output", help="The output folder", required=True, type=str)
     return parser.parse_args()
@@ -43,10 +43,10 @@ def multi_label(num, decimals=4):
     
     return label
 
-def get_data(coord, coord_index, image_index):
+def get_data(coord, coord_index):
     lat, lon = coord[0], coord[1]
     
-    img_path = os.path.join(args.images, f'{str(coord_index + 1).zfill(6)}_{image_index}.jpg')
+    img_path = os.path.join(args.images, f'street_view_{coord_index}.jpg')
     img = Image.open(img_path)
     img_arr = transform(img)
     
@@ -58,8 +58,12 @@ def get_data(coord, coord_index, image_index):
     return [img_arr, target]
 
 def main():
-    mat = scipy.io.loadmat('GPS_Long_Lat_Compass.mat')
-    coords = mat['GPS_Compass']
+    with open(args.file, 'r') as f:
+        coords_reader = csv.reader(f)
+        coords = []
+        for row in coords_reader:
+            coords.append(row)
+
     
     train_data_path = os.path.join(args.output, 'train')
     os.makedirs(train_data_path, exist_ok=True)
@@ -71,20 +75,17 @@ def main():
     
     for coord_index in tqdm(range(len(coords))):
         coord = coords[coord_index]
-        lon = coord[1]
         
-        for i in range(5):
-            if -76 <= lon <= -70:
-                if randint(0, 9) == 0:
-                    data = get_data(coord, coord_index, i)
-                    val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}_{i}.npy')
-                    np.save(val_data_path, data)
-                    val_count += 1
-                else:
-                    data = get_data(coord, coord_index, i)
-                    train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}_{i}.npy')
-                    np.save(train_data_path, data)
-                    train_count += 1
+        if randint(0, 9) == 0:
+            data = get_data(coord, coord_index)
+            val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}.npy')
+            np.save(val_data_path, data)
+            val_count += 1
+        else:
+            data = get_data(coord, coord_index)
+            train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}.npy')
+            np.save(train_data_path, data)
+            train_count += 1
     
     print('Train Files:', train_count)
     print('Val Files:', val_count)

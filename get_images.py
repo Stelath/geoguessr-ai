@@ -5,6 +5,8 @@ import json
 from random import randint
 import argparse
 from csv import writer
+# Consider using https://osmnx.readthedocs.io/en/stable/osmnx.html#osmnx.utils_geo.sample_points for street gps coords
+# Stack Overflow on how to get the coordinates: https://stackoverflow.com/questions/68367074/how-to-generate-random-lat-long-points-within-geographical-boundaries
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -16,7 +18,6 @@ def get_args():
 args = get_args()
 url = 'https://maps.googleapis.com/maps/api/streetview'
 cities = []
-cities_count = []
 
 def load_cities():
     for city in os.listdir(args.cities):
@@ -38,6 +39,8 @@ def main():
     csv_writer = writer(coord_output_file)
     
     for i in tqdm(range(args.icount)):
+        cities_count = []
+        cities_count = [0] * len(cities)
         city_index = randint(0, len(cities) - 1)
         city = cities[city_index]
         cities_count[city_index] += 1
