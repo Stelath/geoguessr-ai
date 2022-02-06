@@ -73,9 +73,7 @@ def main():
     val_count = 0
     train_count = 0
     
-    for coord_index in tqdm(range(len(coords))):
-        coord = coords[coord_index]
-        
+    for coord_index, coord in enumerate(tqdm(coords)):
         if randint(0, 9) == 0:
             data = get_data(coord, coord_index)
             val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}.npy')
