@@ -141,7 +141,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=122)
+    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=162)
     model = nn.Sequential(
         model,
         nn.Sigmoid()

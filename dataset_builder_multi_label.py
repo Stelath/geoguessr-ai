@@ -1,6 +1,5 @@
 import argparse
 import csv
-import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from tqdm import tqdm
@@ -21,22 +20,23 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                     std=[0.229, 0.224, 0.225])
 transform = transforms.Compose([
         transforms.Resize(256),
-        transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize,
     ])
 
 def multi_label(num, decimals=4):
     if decimals > 0:
-      num = str(round(num * (10 ** decimals)))
+      num = str(round(float(num) * (10 ** decimals)))
     else:
-      num = str(round(num))
+      num = str(round(float(num)))
     
     if num[0] == '-':
         label = np.array([1])
         num = num[1:]
     else:
         label = np.array([0])
+    
+    num = num.zfill(8)
     
     for digit in num:
         label = np.concatenate((label, np.eye(10)[int(digit)]))
@@ -54,7 +54,7 @@ def get_data(coord, coord_index):
     lon_multi_label = multi_label(lon)
     
     target = np.concatenate((lat_multi_label, lon_multi_label))
-        
+    
     return [img_arr, target]
 
 def main():
