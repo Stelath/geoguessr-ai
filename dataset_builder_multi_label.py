@@ -1,6 +1,5 @@
 import argparse
 import csv
-import torchvision.transforms as transforms
 from PIL import Image
 from tqdm import tqdm
 from random import randint
@@ -16,15 +15,12 @@ def get_args():
 
 args = get_args()
 
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
-transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.ToTensor(),
-        normalize,
-    ])
+targets_train = []
+targets_val = []
 
 def multi_label(num, decimals=4):
+    num_original = str(abs(float(num)))
+    
     if decimals > 0:
       num = str(round(float(num) * (10 ** decimals)))
     else:
@@ -36,7 +32,8 @@ def multi_label(num, decimals=4):
     else:
         label = np.array([0])
     
-    num = num.zfill(8)
+    num = num.ljust(len(num_original.split('.')[0]) + decimals, '0')
+    num = num.zfill(decimals + 3)
     
     for digit in num:
         label = np.concatenate((label, np.eye(10)[int(digit)]))
@@ -48,14 +45,13 @@ def get_data(coord, coord_index):
     
     img_path = os.path.join(args.images, f'street_view_{coord_index}.jpg')
     img = Image.open(img_path)
-    img_arr = transform(img)
     
     lat_multi_label = multi_label(lat)
     lon_multi_label = multi_label(lon)
     
     target = np.concatenate((lat_multi_label, lon_multi_label))
     
-    return [img_arr, target]
+    return [img, target]
 
 def main():
     with open(args.file, 'r') as f:
@@ -76,14 +72,19 @@ def main():
     for coord_index, coord in enumerate(tqdm(coords)):
         if randint(0, 9) == 0:
             data = get_data(coord, coord_index)
-            val_data_path = os.path.join(args.output, f'val/street_view_{coord_index}.npy')
-            np.save(val_data_path, data)
+            val_data_path = os.path.join(args.output, f'val/street_view_{val_count}.jpg')
+            data[0].save(val_data_path)
+            targets_val.append(data[1])
             val_count += 1
         else:
             data = get_data(coord, coord_index)
-            train_data_path = os.path.join(args.output, f'train/street_view_{coord_index}.npy')
-            np.save(train_data_path, data)
+            train_data_path = os.path.join(args.output, f'train/street_view_{train_count}.jpg')
+            data[0].save(train_data_path)
+            targets_train.append(data[1])
             train_count += 1
+    
+    np.save(os.path.join(args.output, f'train/targets.npy'), np.array(targets_train))
+    np.save(os.path.join(args.output, f'val/targets.npy'), np.array(targets_val))
     
     print('Train Files:', train_count)
     print('Val Files:', val_count)

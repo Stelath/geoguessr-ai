@@ -1,8 +1,10 @@
+from calendar import EPOCH
 import os
 import argparse
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
+import atexit
 
 import torch
 import torch.nn as nn
@@ -46,6 +48,7 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 args = parser.parse_args()
 writer = SummaryWriter()
+model_data = {}
 
 def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     data = data.cuda()
@@ -115,14 +118,16 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs, sta
             print(log, end='')
             f.write(log)
             
+            model_data = {
+                        'epoch': epoch,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': loss
+                        }
+            
             if epoch % args.checkpoint_step == 0:
                 print('Saving model...')
-                torch.save({
-                            'epoch': epoch,
-                            'model_state_dict': model.state_dict(),
-                            'optimizer_state_dict': optimizer.state_dict(),
-                            'loss': loss
-                            }, f'models/{start_time}/model-{epoch}.pth')
+                torch.save(model_data, f'models/{start_time}/model-{epoch}.pth')
 
 def main():
     os.makedirs(f'models/{start_time}', exist_ok=True)
@@ -141,7 +146,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
     
     print("=> creating model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=162)
+    model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=142)
     model = nn.Sequential(
         model,
         nn.Sigmoid()
@@ -158,7 +163,7 @@ def main():
         print('Using CPU')
         torch.device("cpu")
     
-    optimizer = torch.optim.Adam(model.parameters(), args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=1e-4)
     
     start_epoch = 0
     
@@ -171,6 +176,10 @@ def main():
     
     EPOCHS = args.epochs
     train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, start_epoch=start_epoch)
-    
+
+def exit_handler():
+    torch.save(model_data, f'models/{start_time}/model-{model_data["epoch"]}.pth')
+
 if __name__ == '__main__':
+    atexit.register(exit_handler)
     main()
