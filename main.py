@@ -47,8 +47,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 args = parser.parse_args()
-writer = SummaryWriter()
 model_data = {}
+last_epoch = 0
 
 def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     data = data.cuda()
@@ -124,12 +124,18 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs, sta
                         'optimizer_state_dict': optimizer.state_dict(),
                         'loss': loss
                         }
+            last_epoch = epoch
             
             if epoch % args.checkpoint_step == 0:
                 print('Saving model...')
                 torch.save(model_data, f'models/{start_time}/model-{epoch}.pth')
 
 def main():
+    atexit.register(exit_handler)
+    
+    global writer
+    writer = SummaryWriter(f'tensorboard/{start_time}')
+    
     os.makedirs(f'models/{start_time}', exist_ok=True)
     
     traindir = os.path.join(args.data, 'train')
@@ -178,8 +184,8 @@ def main():
     train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, start_epoch=start_epoch)
 
 def exit_handler():
-    torch.save(model_data, f'models/{start_time}/model-{model_data["epoch"]}.pth')
+    print('Ended Training Early, Saving Checkpoint...')
+    torch.save(model_data, f'models/{start_time}/model-{last_epoch}.pth')
 
 if __name__ == '__main__':
-    atexit.register(exit_handler)
     main()

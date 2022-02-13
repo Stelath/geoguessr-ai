@@ -133,3 +133,4 @@ dmypy.json
 /images
 /geoguessr_dataset
 /runs
+/tensorboard
