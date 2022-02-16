@@ -31,8 +31,6 @@ parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N',
                     help='batch size (default: 64), this is the total '
                          'batch size of the GPU')
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
-                    metavar='LR', help='learning rate for optimizer', dest='lr')
 parser.add_argument('--models-dir', default='models', type=str)
 
 start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
@@ -57,16 +55,17 @@ def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     
     return acc, loss
 
-def test(val_loader, model, loss_function, optimizer):
+def test(val_loader, model, loss_function):
     model.eval()
     acc = []
     loss = []
     
-    for idx, sample in enumerate(tqdm(val_loader[:50])):
-        data, target = sample
-        acc, loss = fwd_pass(model, data, target, loss_function, optimizer, train=True)
-        acc.append(acc)
-        loss.append(loss.cpu().detach().numpy())
+    for idx, sample in enumerate(tqdm(val_loader)):
+        if idx < 256:
+            data, target = sample
+            batch_acc, batch_loss = fwd_pass(model, data, target, loss_function, None)
+            acc.append(batch_acc)
+            loss.append(batch_loss.cpu().detach().numpy())
     
     acc = np.mean(acc)
     loss = np.mean(loss)
@@ -76,7 +75,7 @@ def test(val_loader, model, loss_function, optimizer):
     return val_acc, val_loss
 
 def main():
-    
+    torch.device("cuda")
     valdir = os.path.join(args.data, 'val')
     val_dataset = GeoGuessrDataset(valdir)
 
@@ -90,25 +89,24 @@ def main():
         model,
         nn.Sigmoid()
     )
+    model.cuda()
     
     loss_function = nn.BCELoss()
     
-    for model in tqdm(os.listdir(args.models_dir)):
-        model_path = os.path.join(args.models_dir, model)
+    for model_path in tqdm(os.listdir(args.models_dir)):
+        model_path = os.path.join(args.models_dir, model_path)
         print("=> loading model '{}'".format(model_path))
         checkpoint = torch.load(model_path)
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        model.load_state_dict(checkpoint['model_state_dict'])
         print("=> loaded model '{}' (epoch {})".format(model_path, checkpoint['epoch']))
         
-        val_acc, val_loss = test(val_loader, model, loss_function, optimizer)
+        val_acc, val_loss = test(val_loader, model, loss_function)
         all_loss.append(val_loss)
         print("=> val_acc: {:.4f}, val_loss: {:.4f}".format(val_acc, val_loss))
     
-    max_value = max(all_loss)
-    max_index = all_loss.index(max_value)
-    print("=> best model: {}".format(os.listdir(args.models_dir)[max_index]))
+    min_value = min(all_loss)
+    min_index = all_loss.index(min_value)
+    print("=> best model: {}, loss: {}".format(os.listdir(args.models_dir)[min_index], min_value))
 
 if __name__ == '__main__':
     main()
