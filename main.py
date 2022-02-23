@@ -4,7 +4,6 @@ import argparse
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
-import atexit
 
 import torch
 import torch.nn as nn
@@ -47,8 +46,6 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 
 start_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
 args = parser.parse_args()
-model_data = {}
-last_epoch = 0
 
 def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     data = data.cuda()
@@ -60,7 +57,7 @@ def fwd_pass(model, data, targets, loss_function, optimizer, train=False):
     outputs = model(data)
     matches = [(torch.where(i >= 0.5, 1, 0) == j).all() for i, j in zip(outputs, targets)]
     acc = matches.count(True) / len(matches)
-    loss = loss_function(outputs, targets)
+    loss = loss_function(outputs.float(), targets)
 
     if train:
         loss.backward()
@@ -118,21 +115,16 @@ def train(train_loader, val_loader, model, loss_function, optimizer, epochs, sta
             print(log, end='')
             f.write(log)
             
-            model_data = {
+            if epoch % args.checkpoint_step == 0:
+                print('Saving model...')
+                torch.save({
                         'epoch': epoch,
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'loss': loss
-                        }
-            last_epoch = epoch
-            
-            if epoch % args.checkpoint_step == 0:
-                print('Saving model...')
-                torch.save(model_data, f'models/{start_time}/model-{epoch}.pth')
+                        }, f'models/{start_time}/model-{epoch}.pth')
 
 def main():
-    atexit.register(exit_handler)
-    
     global writer
     writer = SummaryWriter(f'tensorboard/{start_time}')
     
@@ -153,12 +145,8 @@ def main():
     
     print("=> creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=142)
-    model = nn.Sequential(
-        model,
-        nn.Sigmoid()
-    )
     
-    loss_function = nn.BCELoss()
+    loss_function = nn.CrossEntropyLoss()
     
     if torch.cuda.is_available():
         print('Using GPU')
@@ -182,10 +170,6 @@ def main():
     
     EPOCHS = args.epochs
     train(train_loader=train_loader, val_loader=val_loader, model=model, loss_function=loss_function, optimizer=optimizer, epochs=EPOCHS, start_epoch=start_epoch)
-
-def exit_handler():
-    print('Ended Training Early, Saving Checkpoint...')
-    torch.save(model_data, f'models/{start_time}/model-{last_epoch}.pth')
 
 if __name__ == '__main__':
     main()

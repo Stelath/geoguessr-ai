@@ -1,16 +1,13 @@
-from calendar import EPOCH
 import os
 import argparse
 from tqdm import tqdm
 import numpy as np
 from datetime import datetime
-import atexit
 
 import torch
 import torch.nn as nn
 import torch.utils.data
 import torchvision.models as models
-from utils.tensor_utils import round_tensor
 from geoguessr_dataset import GeoGuessrDataset
 
 model_names = sorted(name for name in models.__dict__
