@@ -48,7 +48,7 @@ def main():
         city.remove(addressLoc) # Remove the address from the list so we don't get the same one twice
         # Set the parameters for the API call to Google Street View
         params = {
-            'key': 'AIzaSyBlWMgLe5kjbco4Qipo1Ng4O8V2yeu9ds4',
+            'key': '',
             'size': '640x640',
             'location': str(addressLoc[1]) + ',' + str(addressLoc[0]),
             'heading': str((randint(0, 3) * 90) + randint(-15, 15)),
