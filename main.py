@@ -145,6 +145,10 @@ def main():
     
     print("=> creating model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=False, progress=True, num_classes=142)
+    model = nn.Sequential(
+        model,
+        nn.Softmax(dim=0)
+    )
     
     loss_function = nn.CrossEntropyLoss()
     
