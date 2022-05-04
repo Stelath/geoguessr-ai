@@ -13,6 +13,7 @@ def get_args():
     parser.add_argument("--cities", help="The folder full of addresses per city to read and extract GPS coordinates from", required=True, type=str)
     parser.add_argument("--output", help="The output folder where the images will be stored, (defaults to: images/)", default='images/', type=str)
     parser.add_argument("--icount", help="The amount of images to pull (defaults to 25,000)", default=25000, type=int)
+    parser.add_argument("--key", help="Your Google Street View API Key", type=str, required=True)
     return parser.parse_args()
 
 args = get_args()
@@ -48,7 +49,7 @@ def main():
         city.remove(addressLoc) # Remove the address from the list so we don't get the same one twice
         # Set the parameters for the API call to Google Street View
         params = {
-            'key': 'AIzaSyBlWMgLe5kjbco4Qipo1Ng4O8V2yeu9ds4',
+            'key': args.key,
             'size': '640x640',
             'location': str(addressLoc[1]) + ',' + str(addressLoc[0]),
             'heading': str((randint(0, 3) * 90) + randint(-15, 15)),
