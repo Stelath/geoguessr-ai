@@ -1,6 +1,3 @@
-# NOTE:
-## I have made a significantly better version of this, at the following [repo](https://github.com/Stelath/gpt-guessr), it still needs to be significantly improved but its far more accurate.
-
 # GeoGuessr AI
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Stelath/geoguessr-ai/blob/main/notebook/GeoGuessr_AI_Demo.ipynb) ![License](https://img.shields.io/github/license/Stelath/geoguessr-ai)
