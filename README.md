@@ -2,7 +2,7 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Stelath/geoguessr-ai/blob/main/notebook/GeoGuessr_AI_Demo.ipynb) ![License](https://img.shields.io/github/license/Stelath/geoguessr-ai)
 
-This project was done personally as an opportunity to learn more about CNN & RNNs by creating a ML Model that could reliably guess a random location in one of five US cities given only a Google Street View image. The idea was inspired by the game GeoGuessr where the user is given a random Google Street View location and have to guess based on the Street View their location in the world.
+This project was done personally as an opportunity to learn more about CNN & MLPs by creating a ML Model that could reliably guess a random location in one of five US cities given only a Google Street View image. The idea was inspired by the game GeoGuessr where the user is given a random Google Street View location and have to guess based on the Street View their location in the world.
 
 ## Update
 Stanford Grad Students have recently released a model called PIGEON which significantly outperforms ours, I suggest you check it out [here](https://huggingface.co/geolocal/StreetCLIP)
